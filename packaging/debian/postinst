@@ -1,0 +1,10 @@
+#!/bin/sh
+set -e
+if [ "$1" = "configure" ]; then
+	systemctl daemon-reload || true
+	systemctl enable xgbackup-snapshot-daily.timer || true
+	systemctl enable xgbackup-snapshot-weekly.timer || true
+	systemctl enable xgbackup-snapshot-monthly.timer || true
+	systemctl enable xgbackup-snapshot-yearly.timer || true
+fi
+exit 0

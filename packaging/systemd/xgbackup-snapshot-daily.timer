@@ -1,0 +1,10 @@
+[Unit]
+Description=XG Backup daily snapshot
+
+[Timer]
+OnCalendar=daily
+Persistent=true
+Unit=xgbackup-snapshot@daily.service
+
+[Install]
+WantedBy=timers.target

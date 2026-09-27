@@ -1,0 +1,10 @@
+[Unit]
+Description=XG Backup monthly snapshot
+
+[Timer]
+OnCalendar=*-*-01 03:10:00
+Persistent=true
+Unit=xgbackup-snapshot@monthly.service
+
+[Install]
+WantedBy=timers.target

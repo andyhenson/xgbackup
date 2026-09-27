@@ -1,0 +1,11 @@
+Package: xgbackup
+Version: 0.1.0-1
+Section: admin
+Priority: optional
+Architecture: amd64
+Depends: btrfs-progs, openssh-server
+Maintainer: Andy Henson <xgbackup@localhost>
+Description: Linux backup vault
+ Clients push into per-client drop areas. The vault keeps read-only
+ btrfs snapshots on hourly (optional), daily, weekly, monthly, and yearly
+ schedules. Everyday client keys cannot delete snapshot history.

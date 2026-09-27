@@ -1,0 +1,7 @@
+[Unit]
+Description=XG Backup %i snapshot
+After=local-fs.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/xgbackup snapshot --schedule %i

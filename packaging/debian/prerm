@@ -1,0 +1,10 @@
+#!/bin/sh
+set -e
+if [ "$1" = "remove" ]; then
+	systemctl disable --now xgbackup-snapshot-hourly.timer || true
+	systemctl disable --now xgbackup-snapshot-daily.timer || true
+	systemctl disable --now xgbackup-snapshot-weekly.timer || true
+	systemctl disable --now xgbackup-snapshot-monthly.timer || true
+	systemctl disable --now xgbackup-snapshot-yearly.timer || true
+fi
+exit 0
