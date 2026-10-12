@@ -1,5 +1,5 @@
 Name:           xgbackup
-Version:        0.2.0
+Version:        0.3.0
 Release:        1%{?dist}
 Summary:        Linux backup vault
 License:        MIT
@@ -33,6 +33,7 @@ cp -a %{stage}/usr/share/doc/xgbackup/. %{buildroot}/usr/share/doc/xgbackup/
 /usr/lib/systemd/system/xgbackup-snapshot-weekly.timer
 /usr/lib/systemd/system/xgbackup-snapshot-monthly.timer
 /usr/lib/systemd/system/xgbackup-snapshot-yearly.timer
+/usr/lib/systemd/system/xgbackup-web.service
 /usr/share/doc/xgbackup
 
 %post

@@ -32,6 +32,16 @@ func main() {
 		err = cmdStatus()
 	case "restore":
 		err = cmdRestore(os.Args[2:])
+	case "ls":
+		err = cmdLs(os.Args[2:])
+	case "menu":
+		err = cmdMenu()
+	case "access":
+		err = cmdAccess(os.Args[2:])
+	case "web":
+		err = cmdWeb(os.Args[2:])
+	case "smb":
+		err = cmdSmb(os.Args[2:])
 	default:
 		usage()
 		os.Exit(2)
@@ -51,7 +61,13 @@ Usage:
   xgbackup client list
   xgbackup snapshot --schedule daily
   xgbackup status
+  xgbackup ls [--snapshot NAME] [--client NAME] [--path PATH]
   xgbackup restore --client xgb-demo --snapshot NAME --path FILE --dest PATH
+  xgbackup restore --all --snapshot NAME --dest DIR
+  xgbackup menu
+  xgbackup access list
+  xgbackup web
+  xgbackup smb sync
 `, version.Version)
 }
 
@@ -128,17 +144,24 @@ func cmdRestore(args []string) error {
 	fs := flag.NewFlagSet("restore", flag.ContinueOnError)
 	client := fs.String("client", "", "client name")
 	snapshot := fs.String("snapshot", "", "snapshot name")
-	rel := fs.String("path", "", "file path inside the snapshot")
+	rel := fs.String("path", "", "path inside the snapshot; . restores the whole client")
 	dest := fs.String("dest", "", "local destination path")
+	all := fs.Bool("all", false, "restore every client in the snapshot")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
-	if *client == "" || *snapshot == "" || *rel == "" || *dest == "" {
-		return fmt.Errorf("restore requires --client, --snapshot, --path, and --dest")
+	if *snapshot == "" || *dest == "" {
+		return fmt.Errorf("restore requires --snapshot and --dest")
 	}
 	cfg, err := config.Load(config.ConfigPath)
 	if err != nil {
 		return err
+	}
+	if *all {
+		return vault.RestoreAll(cfg.Pool, *snapshot, *dest)
+	}
+	if *client == "" || *rel == "" {
+		return fmt.Errorf("restore requires --client and --path, or --all")
 	}
 	return vault.Restore(cfg.Pool, *client, *snapshot, *rel, *dest)
 }

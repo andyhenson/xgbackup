@@ -9,8 +9,8 @@ Debian:
 Copy the package somewhere the `_apt` user can read it. Installing a file under `/root` makes apt report an unsandboxed download and `Permission denied`.
 
 ```sh
-sudo cp xgbackup_0.2.0-1_amd64.deb /tmp/
-sudo apt-get install /tmp/xgbackup_0.2.0-1_amd64.deb
+sudo cp xgbackup_0.3.0-1_amd64.deb /tmp/
+sudo apt-get install /tmp/xgbackup_0.3.0-1_amd64.deb
 ```
 
 The package masks `sleep.target`, `suspend.target`, `hibernate.target`, and `hybrid-sleep.target` so the vault does not suspend.
@@ -18,7 +18,7 @@ The package masks `sleep.target`, `suspend.target`, `hibernate.target`, and `hyb
 AlmaLinux, from the RPM built with `make rpm`:
 
 ```sh
-sudo dnf install ./xgbackup-0.2.0-1.*.x86_64.rpm
+sudo dnf install ./xgbackup-0.3.0-1.*.x86_64.rpm
 ```
 
 Both packages install `/usr/bin/xgbackup`, `/usr/bin/xgbackup-sync`, and systemd timers. Hourly snapshots stay disabled until you turn them on.

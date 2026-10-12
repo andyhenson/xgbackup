@@ -16,3 +16,7 @@ OpenVPN or another VPN is the same pattern: the backup channel is still SSH, and
 An SSH key for `xgb-demo` can upload into that client's drop. It cannot open a shell, forward ports, or see snapshot directories. Compromising a laptop still cannot delete history. The VPN keeps that SSH port off the public internet.
 
 This development host may have a public address so it can be built and tested. A vault you rely on should follow the firewall rule above.
+
+## Samba over the tunnel
+
+`xgbackup smb sync` publishes each client's drop as a writable share and the snapshot tree as the read-only share `xgbackup-snaps`. On the LAN, map those shares directly. When the vault is offsite, bring up WireGuard first and map the share using the vault's tunnel address. Do not publish Samba, SSH, or the web UI on the public internet. Allow TCP 445 from the tunnel only, the same way SSH is limited to the tunnel.

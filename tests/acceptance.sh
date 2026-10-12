@@ -127,4 +127,10 @@ for target in sleep.target suspend.target hibernate.target hybrid-sleep.target; 
 	printf '%s\n' "$state" | grep -q masked
 done
 
+xgbackup ls | grep -q '^daily-'
+xgbackup ls --snapshot "$snap" --client xgb-demo --path nested | grep -q 'sample.txt'
+rm -rf /tmp/xg-restore-all
+xgbackup restore --client xgb-demo --snapshot "$snap" --path . --dest /tmp/xg-restore-all
+test -f /tmp/xg-restore-all/nested/sample.txt
+
 echo "acceptance ok"

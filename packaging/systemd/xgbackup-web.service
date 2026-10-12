@@ -1,0 +1,10 @@
+[Unit]
+Description=XG Backup web UI
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/xgbackup web
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

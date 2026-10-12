@@ -21,10 +21,36 @@ type Schedule struct {
 	Keep    int  `json:"keep"`
 }
 
+type RestoreRule struct {
+	User   string `json:"user"`
+	Client string `json:"client"`
+	Prefix string `json:"prefix"`
+}
+
+type WebConfig struct {
+	Listen    string   `json:"listen,omitempty"`
+	Required  []string `json:"required,omitempty"`
+	AllowCIDR []string `json:"allow_cidr,omitempty"`
+}
+
 type Config struct {
-	Pool      string              `json:"pool"`
-	VaultID   string              `json:"vault_id"`
-	Schedules map[string]Schedule `json:"schedules"`
+	Pool       string              `json:"pool"`
+	VaultID    string              `json:"vault_id"`
+	Schedules  map[string]Schedule `json:"schedules"`
+	SetupUsers []string            `json:"setup_users,omitempty"`
+	Restore    []RestoreRule       `json:"restore,omitempty"`
+	Web        WebConfig           `json:"web,omitempty"`
+}
+
+func (c Config) EffectiveWeb() WebConfig {
+	w := c.Web
+	if w.Listen == "" {
+		w.Listen = "127.0.0.1:8787"
+	}
+	if len(w.Required) == 0 {
+		w.Required = []string{"password"}
+	}
+	return w
 }
 
 func Default(vaultID string) Config {

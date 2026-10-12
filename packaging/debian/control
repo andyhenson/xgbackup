@@ -1,9 +1,9 @@
 Package: xgbackup
-Version: 0.2.0-1
+Version: 0.3.0-1
 Section: admin
 Priority: optional
 Architecture: amd64
-Depends: btrfs-progs, openssh-server
+Depends: btrfs-progs, openssh-server, whiptail
 Maintainer: Andy Henson <xgbackup@localhost>
 Description: Linux backup vault
  Clients push into per-client drop areas. The vault keeps read-only

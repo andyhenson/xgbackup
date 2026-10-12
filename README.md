@@ -8,7 +8,7 @@ XG Monitor (dashboard, billing, alerts) is a separate product and is not in this
 
 - `cmd/xgbackup` — vault CLI (Linux)
 - `cmd/xgbackup-sync` — push client (Windows, macOS, Linux)
-- `docs/` — install, status, restore, VPN, hardening, heartbeat contract
+- `docs/` — install, status, restore, menus and web UI, VPN, hardening, heartbeat contract
 - `packaging/` — Debian package, AlmaLinux RPM, systemd timers
 
 ## License
