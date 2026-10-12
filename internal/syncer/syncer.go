@@ -25,9 +25,9 @@ type Options struct {
 }
 
 type Result struct {
-	Uploaded int
-	Skipped  int
-	Deleted  int
+	Uploaded  int
+	Identical int
+	Deleted   int
 }
 
 func Run(opt Options) (Result, error) {
@@ -102,7 +102,7 @@ func Run(opt Options) (Result, error) {
 			return err
 		}
 		if d.Type()&os.ModeSymlink != 0 {
-			fmt.Fprintf(os.Stderr, "skipped symlink: %s\n", local)
+			fmt.Fprintf(os.Stderr, "not copied (not a regular file): %s\n", local)
 			return nil
 		}
 		if d.IsDir() {
@@ -115,7 +115,7 @@ func Run(opt Options) (Result, error) {
 			return nil
 		}
 		if !d.Type().IsRegular() {
-			fmt.Fprintf(os.Stderr, "skipped non-regular file: %s\n", local)
+			fmt.Fprintf(os.Stderr, "not copied (not a regular file): %s\n", local)
 			return nil
 		}
 		wantFiles[remote] = struct{}{}
@@ -128,7 +128,7 @@ func Run(opt Options) (Result, error) {
 		if uploaded {
 			result.Uploaded++
 		} else {
-			result.Skipped++
+			result.Identical++
 		}
 		return nil
 	})

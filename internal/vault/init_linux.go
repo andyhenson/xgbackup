@@ -60,6 +60,9 @@ func Init(device string) error {
 	if err := mkdirRoot(pool+"/clients", 0o755); err != nil {
 		return err
 	}
+	if err := mkdirRoot(pool+"/snaps", 0o700); err != nil {
+		return err
+	}
 	cfg, err := config.Load(config.ConfigPath)
 	if err != nil {
 		if !os.IsNotExist(err) {

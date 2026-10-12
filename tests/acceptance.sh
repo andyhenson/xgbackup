@@ -3,10 +3,11 @@
 # restores from a snapshot after the live drop has changed.
 set -eu
 
-KEY=/etc/xgbackup/clients/xgb-demo/id_ed25519
+KEY=/etc/xgbackup/clients/xgb-demo.key
+OLD=/etc/xgbackup/clients/xgb-demo/id_ed25519
 POOL=/var/lib/xgbackup/pool/clients/xgb-demo
 DROP=$POOL/jail/drop
-SNAPS=$POOL/snaps
+SNAPS=/var/lib/xgbackup/pool/snaps
 KNOWN=/tmp/xg-known-hosts
 SRC=/tmp/xg-src
 
@@ -15,6 +16,9 @@ if [ "$(id -u)" -ne 0 ]; then
 	exit 1
 fi
 
+xgbackup client list >/dev/null
+test -f "$KEY"
+test -L "$OLD"
 mode=$(stat -c %a "$KEY")
 test "$mode" = "600"
 
@@ -23,7 +27,7 @@ if groups xgb-demo | grep -q '\bsudo\b'; then
 	exit 1
 fi
 
-rm -rf "$SRC" /tmp/xg-badkey /tmp/xg-badkey.pub
+rm -rf "$SRC" /tmp/xg-badkey /tmp/xg-badkey.pub /root/.xgbackup
 mkdir -p "$SRC/nested"
 printf 'vault-drill\n' > "$SRC/nested/sample.txt"
 printf 'extra\n' > "$SRC/extra.txt"
@@ -36,20 +40,24 @@ sync_ok() {
 out=$(sync_ok)
 printf '%s\n' "$out" | grep -q 'uploaded=[1-9]'
 test -f "$DROP/nested/sample.txt"
-out=$(sync_ok)
-printf '%s\n' "$out" | grep -q 'skipped=[1-9]'
+test -f /root/.xgbackup/profile
+test -f /root/.xgbackup/known_hosts
+out=$(xgbackup-sync -src "$SRC")
+printf '%s\n' "$out" | grep -q 'identical=[1-9]'
+printf '%s\n' "$out" | grep -vq 'skipped='
 
 rm -f "$SRC/extra.txt"
-out=$(sync_ok)
+out=$(xgbackup-sync -src "$SRC")
 printf '%s\n' "$out" | grep -q 'deleted=[1-9]'
 test ! -f "$DROP/extra.txt"
 
 xgbackup snapshot --schedule daily
 snap=$(ls "$SNAPS" | grep '^daily-' | sort | tail -n 1)
 test -n "$snap"
-prop=$(btrfs property get "$SNAPS/$snap" ro)
+printf '%s\n' "$snap" | grep -Eq '^daily-[0-9]{8}$'
+prop=$(btrfs property get "$SNAPS/$snap/xgb-demo" ro)
 printf '%s\n' "$prop" | grep -q 'ro=true'
-if sh -c 'printf "%s\n" nope > "$1"' sh "$SNAPS/$snap/nested/sample.txt" >/dev/null 2>&1; then
+if sh -c 'printf "%s\n" nope > "$1"' sh "$SNAPS/$snap/xgb-demo/nested/sample.txt" >/dev/null 2>&1; then
 	echo "snapshot is writable" >&2
 	exit 1
 fi
@@ -60,14 +68,14 @@ grep -q 'vault-drill' /tmp/restored-sample.txt
 grep -q 'changed-later' "$DROP/nested/sample.txt"
 
 cat > /tmp/xg-sftp.batch <<EOF
-rm /snaps/$snap/nested/sample.txt
+rm /snaps/$snap/xgb-demo/nested/sample.txt
 rm /drop/../../snaps/$snap/nested/sample.txt
 EOF
 sftp -b /tmp/xg-sftp.batch -i "$KEY" -o BatchMode=yes -o IdentitiesOnly=yes \
 	-o StrictHostKeyChecking=yes -o UserKnownHostsFile="$KNOWN" \
 	xgb-demo@127.0.0.1 >/tmp/xg-sftp.out 2>&1 || true
-test -f "$SNAPS/$snap/nested/sample.txt"
-if grep -q 'vault-drill' "$SNAPS/$snap/nested/sample.txt"; then
+test -f "$SNAPS/$snap/xgb-demo/nested/sample.txt"
+if grep -q 'vault-drill' "$SNAPS/$snap/xgb-demo/nested/sample.txt"; then
 	:
 else
 	echo "snapshot file was damaged" >&2
@@ -81,6 +89,10 @@ if ssh -i "$KEY" -o BatchMode=yes -o IdentitiesOnly=yes \
 	exit 1
 fi
 test -d "$SNAPS/$snap"
+
+xgbackup snapshot --schedule daily
+count=$(ls "$SNAPS" | grep -c '^daily-' || true)
+test "$count" = "1"
 
 ssh-keygen -t ed25519 -N "" -f /tmp/xg-badkey -q
 set +e
@@ -96,15 +108,6 @@ grep -q 'unreachable' /tmp/xg-unreach.out
 
 xgbackup snapshot --schedule hourly | grep -q 'disabled'
 
-i=0
-while [ "$i" -lt 8 ]; do
-	xgbackup snapshot --schedule daily >/dev/null
-	i=$((i + 1))
-done
-count=$(ls "$SNAPS" | grep -c '^daily-' || true)
-test "$count" -le 7
-test "$count" -ge 1
-
 test -f /var/lib/xgbackup/status.json
 grep -q '"vault_id"' /var/lib/xgbackup/status.json
 grep -q '"pool_free_bytes"' /var/lib/xgbackup/status.json
@@ -118,5 +121,10 @@ systemctl is-enabled xgbackup-snapshot-daily.timer >/dev/null
 systemctl is-enabled xgbackup-snapshot-weekly.timer >/dev/null
 systemctl is-enabled xgbackup-snapshot-monthly.timer >/dev/null
 systemctl is-enabled xgbackup-snapshot-yearly.timer >/dev/null
+
+for target in sleep.target suspend.target hibernate.target hybrid-sleep.target; do
+	state=$(systemctl is-enabled "$target" 2>&1 || true)
+	printf '%s\n' "$state" | grep -q masked
+done
 
 echo "acceptance ok"

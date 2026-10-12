@@ -30,8 +30,16 @@ func dropDir(pool, name string) string {
 	return filepath.Join(jailDir(pool, name), "drop")
 }
 
-func snapsDir(pool, name string) string {
-	return filepath.Join(clientDir(pool, name), "snaps")
+func snapsRoot(pool string) string {
+	return filepath.Join(pool, "snaps")
+}
+
+func snapshotTree(pool, snap string) string {
+	return filepath.Join(snapsRoot(pool), snap)
+}
+
+func clientSnapDir(pool, snap, client string) string {
+	return filepath.Join(snapshotTree(pool, snap), client)
 }
 
 func mkdirRoot(path string, mode os.FileMode) error {

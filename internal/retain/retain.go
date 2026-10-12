@@ -5,10 +5,11 @@ import (
 	"sort"
 )
 
-var stamp = regexp.MustCompile(`^[0-9]{8}T[0-9]{6}(\.[0-9]{9})?Z$`)
+// stamp is YYYYMMDD, or YYYYMMDDThh for hourly snapshots.
+var stamp = regexp.MustCompile(`^[0-9]{8}(T[0-9]{2})?$`)
 
 // PruneNames returns the oldest names to delete so that keep names remain.
-// Names must sort chronologically, which the snapshot timestamp format does.
+// Names must sort chronologically, which the snapshot date format does.
 func PruneNames(names []string, keep int) []string {
 	if keep < 1 {
 		keep = 1
@@ -21,7 +22,8 @@ func PruneNames(names []string, keep int) []string {
 	return sorted[:len(sorted)-keep]
 }
 
-// FilterPrefix keeps names that start with schedule plus a hyphen.
+// FilterPrefix keeps names that start with schedule plus a hyphen and a
+// date stamp this vault writes.
 func FilterPrefix(names []string, schedule string) []string {
 	prefix := schedule + "-"
 	var out []string

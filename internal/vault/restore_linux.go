@@ -24,7 +24,7 @@ func Restore(pool, client, snapshot, rel, dest string) error {
 	if err != nil {
 		return err
 	}
-	src := path.Join(snapsDir(pool, client), snapshot, clean)
+	src := path.Join(clientSnapDir(pool, snapshot, client), clean)
 	info, err := os.Stat(src)
 	if err != nil {
 		return err

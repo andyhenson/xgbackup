@@ -1,4 +1,4 @@
-VERSION := 0.1.0
+VERSION := 0.2.0
 STAGE := packaging/out/stage
 DESTDIR ?=
 
@@ -24,7 +24,7 @@ install: build
 	install -m 644 packaging/systemd/xgbackup-snapshot-monthly.timer $(DESTDIR)/usr/lib/systemd/system/
 	install -m 644 packaging/systemd/xgbackup-snapshot-yearly.timer $(DESTDIR)/usr/lib/systemd/system/
 	install -d $(DESTDIR)/usr/share/doc/xgbackup
-	install -m 644 README.md LICENSE docs/install.md docs/status.md docs/restore.md docs/vpn-offsite.md docs/hardening.md docs/monitor-contract.md $(DESTDIR)/usr/share/doc/xgbackup/
+	install -m 644 README.md LICENSE docs/install.md docs/status.md docs/restore.md docs/vpn-offsite.md docs/hardening.md docs/monitor-contract.md docs/BUILD-BRIEF.md $(DESTDIR)/usr/share/doc/xgbackup/
 
 stage: build
 	rm -rf $(STAGE)
@@ -40,6 +40,7 @@ deb: stage
 	cp packaging/debian/prerm packaging/out/deb/xgbackup/DEBIAN/prerm
 	chmod 755 packaging/out/deb/xgbackup/DEBIAN/postinst packaging/out/deb/xgbackup/DEBIAN/prerm
 	dpkg-deb --root-owner-group -Zgzip --build packaging/out/deb/xgbackup packaging/out/xgbackup_$(VERSION)-1_amd64.deb
+	@echo "Install from a path _apt can read, for example: sudo cp packaging/out/xgbackup_$(VERSION)-1_amd64.deb /tmp/ && sudo apt-get install /tmp/xgbackup_$(VERSION)-1_amd64.deb"
 
 rpm: stage
 	rm -rf packaging/rpm/build

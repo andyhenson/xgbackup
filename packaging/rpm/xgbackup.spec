@@ -1,5 +1,5 @@
 Name:           xgbackup
-Version:        0.1.0
+Version:        0.2.0
 Release:        1%{?dist}
 Summary:        Linux backup vault
 License:        MIT
@@ -38,6 +38,7 @@ cp -a %{stage}/usr/share/doc/xgbackup/. %{buildroot}/usr/share/doc/xgbackup/
 %post
 if [ $1 -eq 1 ] || [ $1 -eq 2 ]; then
     systemctl daemon-reload || true
+    systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target || true
     systemctl enable xgbackup-snapshot-daily.timer || true
     systemctl enable xgbackup-snapshot-weekly.timer || true
     systemctl enable xgbackup-snapshot-monthly.timer || true

@@ -5,6 +5,7 @@ package vault
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"time"
@@ -36,30 +37,41 @@ func Snapshot(schedule string) error {
 	if err != nil {
 		return err
 	}
+	if err := mkdirRoot(snapsRoot(cfg.Pool), 0o700); err != nil {
+		return err
+	}
+	if len(clients) == 0 {
+		fmt.Println("no clients")
+		return nil
+	}
+	snap, err := snapshotName(schedule, time.Now().UTC())
+	if err != nil {
+		return err
+	}
+	destRoot := snapshotTree(cfg.Pool, snap)
+	if _, err := os.Stat(destRoot); err == nil {
+		if err := deleteSnapshotTree(destRoot); err != nil {
+			return err
+		}
+	} else if !os.IsNotExist(err) {
+		return err
+	}
+	if err := mkdirRoot(destRoot, 0o700); err != nil {
+		return err
+	}
 	st, err := loadState()
 	if err != nil {
 		return err
 	}
 	failed := 0
 	for _, name := range clients {
-		snap, err := snapshotClient(cfg.Pool, name, schedule)
-		if err != nil {
+		dest := clientSnapDir(cfg.Pool, snap, name)
+		if err := run("btrfs", "subvolume", "snapshot", "-r", dropDir(cfg.Pool, name), dest); err != nil {
 			failed++
 			prev := st.Clients[name]
 			prev.LastSnapshotOK = false
 			prev.LastError = err.Error()
 			st.Clients[name] = prev
-			fmt.Fprintf(os.Stderr, "%s: %s\n", name, err)
-			continue
-		}
-		if err := pruneClient(cfg.Pool, name, schedule, sch.Keep); err != nil {
-			failed++
-			st.Clients[name] = ClientState{
-				LastSnapshot:     snap,
-				LastSnapshotTime: time.Now().UTC().Format(time.RFC3339),
-				LastSnapshotOK:   false,
-				LastError:        err.Error(),
-			}
 			fmt.Fprintf(os.Stderr, "%s: %s\n", name, err)
 			continue
 		}
@@ -70,6 +82,12 @@ func Snapshot(schedule string) error {
 			LastError:        "",
 		}
 		fmt.Printf("%s snapshot %s\n", name, snap)
+	}
+	if failed == len(clients) {
+		_ = os.Remove(destRoot)
+	}
+	if err := pruneSchedule(cfg.Pool, schedule, sch.Keep); err != nil {
+		return err
 	}
 	if err := saveState(st); err != nil {
 		return err
@@ -83,38 +101,30 @@ func Snapshot(schedule string) error {
 	return nil
 }
 
-func snapshotClient(pool, name, schedule string) (string, error) {
-	var last error
-	for try := 0; try < 5; try++ {
-		stamp := time.Now().UTC().Format("20060102T150405.000000000Z")
-		destName := schedule + "-" + stamp
-		dest := snapsDir(pool, name) + "/" + destName
-		if _, err := os.Stat(dest); err == nil {
-			time.Sleep(time.Millisecond)
-			last = fmt.Errorf("snapshot %s already exists", destName)
-			continue
-		}
-		if err := run("btrfs", "subvolume", "snapshot", "-r", dropDir(pool, name), dest); err != nil {
-			return "", err
-		}
-		return destName, nil
+func snapshotName(schedule string, now time.Time) (string, error) {
+	switch schedule {
+	case "hourly":
+		return schedule + "-" + now.UTC().Format("20060102T15"), nil
+	case "daily", "weekly", "monthly", "yearly":
+		return schedule + "-" + now.UTC().Format("20060102"), nil
+	default:
+		return "", fmt.Errorf("unknown schedule %s", schedule)
 	}
-	if last == nil {
-		last = fmt.Errorf("could not allocate a snapshot name")
-	}
-	return "", last
 }
 
-func pruneClient(pool, name, schedule string, keep int) error {
-	names, err := snapshotNames(snapsDir(pool, name))
+func pruneSchedule(pool, schedule string, keep int) error {
+	names, err := snapshotNames(snapsRoot(pool))
 	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
 		return err
 	}
 	for _, old := range retain.PruneNames(retain.FilterPrefix(names, schedule), keep) {
-		if err := deleteSnapshot(snapsDir(pool, name) + "/" + old); err != nil {
+		if err := deleteSnapshotTree(snapshotTree(pool, old)); err != nil {
 			return err
 		}
-		fmt.Printf("%s pruned %s\n", name, old)
+		fmt.Printf("pruned %s\n", old)
 	}
 	return nil
 }
@@ -147,8 +157,24 @@ func deleteSnapshot(path string) error {
 	return run("btrfs", "subvolume", "delete", path)
 }
 
-func newestSnapshot(dir string) (string, error) {
-	names, err := snapshotNames(dir)
+func deleteSnapshotTree(dir string) error {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+	for _, e := range entries {
+		if err := deleteSnapshot(filepath.Join(dir, e.Name())); err != nil {
+			return err
+		}
+	}
+	return os.Remove(dir)
+}
+
+func newestSnapshotForClient(pool, client string) (string, error) {
+	names, err := snapshotNames(snapsRoot(pool))
 	if err != nil {
 		if os.IsNotExist(err) {
 			return "", nil
@@ -157,7 +183,11 @@ func newestSnapshot(dir string) (string, error) {
 	}
 	var snaps []string
 	for _, name := range names {
-		if strings.Contains(name, "-") {
+		if !strings.Contains(name, "-") {
+			continue
+		}
+		st, err := os.Stat(clientSnapDir(pool, name, client))
+		if err == nil && st.IsDir() {
 			snaps = append(snaps, name)
 		}
 	}

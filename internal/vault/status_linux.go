@@ -22,11 +22,11 @@ type ClientStatus struct {
 }
 
 type Status struct {
-	VaultID       string         `json:"vault_id"`
-	Time          string         `json:"time"`
-	PoolFreeBytes uint64         `json:"pool_free_bytes"`
-	PoolTotalBytes uint64        `json:"pool_total_bytes"`
-	Clients       []ClientStatus `json:"clients"`
+	VaultID        string         `json:"vault_id"`
+	Time           string         `json:"time"`
+	PoolFreeBytes  uint64         `json:"pool_free_bytes"`
+	PoolTotalBytes uint64         `json:"pool_total_bytes"`
+	Clients        []ClientStatus `json:"clients"`
 }
 
 func WriteStatus(cfg config.Config) error {
@@ -71,7 +71,7 @@ func BuildStatus(cfg config.Config) (Status, error) {
 	}
 	for _, name := range names {
 		cs := state.Clients[name]
-		newest, err := newestSnapshot(snapsDir(cfg.Pool, name))
+		newest, err := newestSnapshotForClient(cfg.Pool, name)
 		if err != nil {
 			return Status{}, err
 		}

@@ -2,6 +2,7 @@
 set -e
 if [ "$1" = "configure" ]; then
 	systemctl daemon-reload || true
+	systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target || true
 	systemctl enable xgbackup-snapshot-daily.timer || true
 	systemctl enable xgbackup-snapshot-weekly.timer || true
 	systemctl enable xgbackup-snapshot-monthly.timer || true
