@@ -12,8 +12,9 @@ import (
 	"github.com/xgbackup/xgbackup/internal/config"
 )
 
-// Menu is the whiptail console for a logged-in user. It does not apply the
-// web UI's IP, cookie, password, or second-factor checks.
+// Menu is the whiptail console. A logged-in user can look at the vault
+// without becoming root. Restore and snapshots stay off this menu:
+// snapshots are taken by the timers, and a restore is done on another machine.
 func Menu() error {
 	if _, err := exec.LookPath("whiptail"); err != nil {
 		return fmt.Errorf("whiptail is not installed")
@@ -30,10 +31,7 @@ func Menu() error {
 			"status", "Show vault status",
 			"ls", "List snapshots",
 			"browse", "Browse files in a snapshot",
-			"restore", "Restore one path or a whole client",
-			"all", "Restore every client in a snapshot",
-			"add", "Add a backup client",
-			"snap", "Take a snapshot now",
+			"web", "Configure the web UI",
 			"quit", "Leave the menu",
 		})
 		if err != nil || choice == "" || choice == "quit" {
@@ -53,45 +51,50 @@ func menuAct(choice string) error {
 	}
 	switch choice {
 	case "status":
-		return PrintStatus(cfg)
-	case "ls":
-		return List(cfg.Pool, "", "", "")
-	case "browse":
-		return menuBrowse(cfg.Pool)
-	case "restore":
-		return menuRestore(cfg.Pool, false)
-	case "all":
-		return menuRestore(cfg.Pool, true)
-	case "add":
-		name, err := whiptailInput("Client name, for example xgb-laptop")
-		if err != nil || name == "" {
-			return err
+		if os.Geteuid() != 0 {
+			text, err := queryStatusText()
+			if err != nil {
+				return err
+			}
+			whiptailMsg("Status", text)
+			return nil
 		}
-		key, err := AddClient(cfg.Pool, name)
+		text, err := statusText(cfg)
 		if err != nil {
 			return err
 		}
-		fmt.Printf("key %s\n", key)
+		whiptailMsg("Status", text)
+		fmt.Print(text)
 		return nil
-	case "snap":
-		schedule, err := whiptail("Snapshot", "Schedule", []string{
-			"daily", "Daily",
-			"weekly", "Weekly",
-			"monthly", "Monthly",
-			"yearly", "Yearly",
-			"hourly", "Hourly",
-		})
-		if err != nil || schedule == "" {
+	case "ls":
+		names, err := menuNames(cfg.Pool, "", "", "")
+		if err != nil {
 			return err
 		}
-		return Snapshot(schedule)
+		if len(names) == 0 {
+			whiptailMsg("Snapshots", "no snapshots")
+			return nil
+		}
+		whiptailMsg("Snapshots", strings.Join(names, "\n"))
+		return nil
+	case "browse":
+		return menuBrowse(cfg.Pool)
+	case "web":
+		return menuWeb()
 	default:
 		return nil
 	}
 }
 
+func menuNames(pool, snapshot, client, rel string) ([]string, error) {
+	if os.Geteuid() == 0 {
+		return Entries(pool, snapshot, client, rel)
+	}
+	return queryNames(snapshot, client, rel)
+}
+
 func menuBrowse(pool string) error {
-	snaps, err := Entries(pool, "", "", "")
+	snaps, err := menuNames(pool, "", "", "")
 	if err != nil {
 		return err
 	}
@@ -99,7 +102,7 @@ func menuBrowse(pool string) error {
 	if err != nil || snap == "" {
 		return err
 	}
-	clients, err := Entries(pool, snap, "", "")
+	clients, err := menuNames(pool, snap, "", "")
 	if err != nil {
 		return err
 	}
@@ -109,7 +112,7 @@ func menuBrowse(pool string) error {
 	}
 	rel := ""
 	for {
-		names, err := Entries(pool, snap, client, rel)
+		names, err := menuNames(pool, snap, client, rel)
 		if err != nil {
 			return err
 		}
@@ -137,40 +140,65 @@ func menuBrowse(pool string) error {
 			}
 			continue
 		}
-		fmt.Printf("%s/%s\n", client, joinMenu(rel, choice))
+		whiptailMsg("File", client+"/"+joinMenu(rel, choice))
 		return nil
 	}
 }
 
-func menuRestore(pool string, all bool) error {
-	snaps, err := Entries(pool, "", "", "")
-	if err != nil {
+func menuWeb() error {
+	listen, err := whiptailInputDefault("HTTPS listen address. This is reachable without WireGuard.", "0.0.0.0:8787")
+	if err != nil || listen == "" {
 		return err
 	}
-	snap, err := pick("Restore snapshot", snaps)
-	if err != nil || snap == "" {
+	checks, err := whiptailChecks()
+	if err != nil || checks == nil {
 		return err
 	}
-	dest, err := whiptailInput("Destination directory")
-	if err != nil || dest == "" {
+	var cidrs []string
+	for _, name := range checks {
+		if name == "ip" {
+			raw, err := whiptailInput("Allowed networks, comma-separated, for example 10.4.1.0/24")
+			if err != nil || raw == "" {
+				return err
+			}
+			for _, item := range strings.Split(raw, ",") {
+				item = strings.TrimSpace(item)
+				if item != "" {
+					cidrs = append(cidrs, item)
+				}
+			}
+		}
+	}
+	user, err := whiptailInput("Web user name")
+	if err != nil || user == "" {
 		return err
 	}
-	if all {
-		return RestoreAll(pool, snap, dest)
+	email := ""
+	for _, name := range checks {
+		if name == "email" {
+			email, err = whiptailInput("Email address for " + user)
+			if err != nil || email == "" {
+				return err
+			}
+		}
 	}
-	clients, err := Entries(pool, snap, "", "")
-	if err != nil {
+	password, err := whiptailPassword("Password for " + user)
+	if err != nil || password == "" {
 		return err
 	}
-	client, err := pick("Client", clients)
-	if err != nil || client == "" {
+	setup := webSetup{
+		Listen:    listen,
+		Required:  checks,
+		AllowCIDR: cidrs,
+		User:      user,
+		Password:  password,
+		Email:     email,
+	}
+	if err := queryJSON("POST", "/web/setup", setup, nil); err != nil {
 		return err
 	}
-	rel, err := whiptailInput("Path inside the snapshot, or . for the whole client")
-	if err != nil || rel == "" {
-		return err
-	}
-	return Restore(pool, client, snap, rel, dest)
+	whiptailMsg("Web", "The web UI is https://"+listen+"/.\nThe console menu and the web service are enabled.\nThe certificate is created on this machine.")
+	return nil
 }
 
 func pick(title string, names []string) (string, error) {
@@ -199,7 +227,15 @@ func whiptail(title, prompt string, pairs []string) (string, error) {
 }
 
 func whiptailInput(prompt string) (string, error) {
-	cmd := exec.Command("whiptail", "--title", "XG Backup", "--inputbox", prompt, "10", "70")
+	return whiptailInputDefault(prompt, "")
+}
+
+func whiptailInputDefault(prompt, init string) (string, error) {
+	args := []string{"--title", "XG Backup", "--inputbox", prompt, "10", "70"}
+	if init != "" {
+		args = append(args, init)
+	}
+	cmd := exec.Command("whiptail", args...)
 	cmd.Stdin = os.Stdin
 	var buf bytes.Buffer
 	cmd.Stderr = &buf
@@ -208,6 +244,54 @@ func whiptailInput(prompt string) (string, error) {
 		return "", nil
 	}
 	return strings.TrimSpace(buf.String()), nil
+}
+
+func whiptailPassword(prompt string) (string, error) {
+	cmd := exec.Command("whiptail", "--title", "XG Backup", "--passwordbox", prompt, "10", "70")
+	cmd.Stdin = os.Stdin
+	var buf bytes.Buffer
+	cmd.Stderr = &buf
+	cmd.Stdout = os.Stdout
+	if err := cmd.Run(); err != nil {
+		return "", nil
+	}
+	return strings.TrimSpace(buf.String()), nil
+}
+
+func whiptailChecks() ([]string, error) {
+	cmd := exec.Command("whiptail", "--title", "Web", "--checklist", "Required checks. Password is used when none are selected.", "20", "76", "6",
+		"password", "Username and password", "on",
+		"ip", "Limit by IP range", "off",
+		"cookie", "Approved browser cookie", "off",
+		"totp", "Authenticator code", "off",
+		"email", "Email code", "off")
+	cmd.Stdin = os.Stdin
+	var buf bytes.Buffer
+	cmd.Stderr = &buf
+	cmd.Stdout = os.Stdout
+	if err := cmd.Run(); err != nil {
+		return nil, nil
+	}
+	raw := strings.TrimSpace(buf.String())
+	if raw == "" {
+		return []string{"password"}, nil
+	}
+	var out []string
+	for _, field := range strings.Fields(raw) {
+		out = append(out, strings.Trim(field, `"`))
+	}
+	return out, nil
+}
+
+func whiptailMsg(title, text string) {
+	if text == "" {
+		text = "(empty)"
+	}
+	cmd := exec.Command("whiptail", "--title", title, "--scrolltext", "--msgbox", text, "22", "76")
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	_ = cmd.Run()
 }
 
 func pathDir(rel string) string {

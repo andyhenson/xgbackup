@@ -29,6 +29,10 @@ func cmdMenu() error {
 	return vault.Menu()
 }
 
+func cmdQuery() error {
+	return vault.Query()
+}
+
 func cmdAccess(args []string) error {
 	if len(args) < 1 {
 		return fmt.Errorf("access requires list, setup, or restore")

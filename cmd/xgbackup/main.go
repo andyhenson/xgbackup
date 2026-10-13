@@ -40,6 +40,8 @@ func main() {
 		err = cmdAccess(os.Args[2:])
 	case "web":
 		err = cmdWeb(os.Args[2:])
+	case "query":
+		err = cmdQuery()
 	case "smb":
 		err = cmdSmb(os.Args[2:])
 	default:

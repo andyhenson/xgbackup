@@ -1,4 +1,4 @@
-VERSION := 0.3.0
+VERSION := 0.4.0
 STAGE := packaging/out/stage
 DESTDIR ?=
 
@@ -24,6 +24,8 @@ install: build
 	install -m 644 packaging/systemd/xgbackup-snapshot-monthly.timer $(DESTDIR)/usr/lib/systemd/system/
 	install -m 644 packaging/systemd/xgbackup-snapshot-yearly.timer $(DESTDIR)/usr/lib/systemd/system/
 	install -m 644 packaging/systemd/xgbackup-web.service $(DESTDIR)/usr/lib/systemd/system/
+	install -m 644 packaging/systemd/xgbackup-query.service $(DESTDIR)/usr/lib/systemd/system/
+	install -m 644 packaging/systemd/xgbackup-menu.service $(DESTDIR)/usr/lib/systemd/system/
 	install -d $(DESTDIR)/usr/share/doc/xgbackup
 	install -m 644 README.md LICENSE docs/install.md docs/status.md docs/restore.md docs/vpn-offsite.md docs/hardening.md docs/monitor-contract.md docs/ui.md $(DESTDIR)/usr/share/doc/xgbackup/
 

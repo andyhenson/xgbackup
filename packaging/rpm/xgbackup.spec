@@ -1,5 +1,5 @@
 Name:           xgbackup
-Version:        0.3.0
+Version:        0.4.0
 Release:        1%{?dist}
 Summary:        Linux backup vault
 License:        MIT
@@ -34,6 +34,8 @@ cp -a %{stage}/usr/share/doc/xgbackup/. %{buildroot}/usr/share/doc/xgbackup/
 /usr/lib/systemd/system/xgbackup-snapshot-monthly.timer
 /usr/lib/systemd/system/xgbackup-snapshot-yearly.timer
 /usr/lib/systemd/system/xgbackup-web.service
+/usr/lib/systemd/system/xgbackup-query.service
+/usr/lib/systemd/system/xgbackup-menu.service
 /usr/share/doc/xgbackup
 
 %post
@@ -44,6 +46,9 @@ if [ $1 -eq 1 ] || [ $1 -eq 2 ]; then
     systemctl enable xgbackup-snapshot-weekly.timer || true
     systemctl enable xgbackup-snapshot-monthly.timer || true
     systemctl enable xgbackup-snapshot-yearly.timer || true
+    getent group xgbackup >/dev/null || groupadd --system xgbackup || true
+    id xgbackup >/dev/null 2>&1 || useradd --system --gid xgbackup --home-dir /var/lib/xgbackup --no-create-home --shell /usr/sbin/nologin xgbackup || true
+    systemctl enable --now xgbackup-query.service || true
 fi
 
 %preun

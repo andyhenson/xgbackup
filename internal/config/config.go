@@ -31,6 +31,8 @@ type WebConfig struct {
 	Listen    string   `json:"listen,omitempty"`
 	Required  []string `json:"required,omitempty"`
 	AllowCIDR []string `json:"allow_cidr,omitempty"`
+	Cert      string   `json:"cert,omitempty"`
+	Key       string   `json:"key,omitempty"`
 }
 
 type Config struct {

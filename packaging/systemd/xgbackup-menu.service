@@ -1,0 +1,22 @@
+[Unit]
+Description=XG Backup console menu
+After=xgbackup-query.service
+Conflicts=getty@tty1.service
+
+[Service]
+User=xgbackup
+Group=xgbackup
+ExecStartPre=+/bin/chgrp xgbackup /dev/tty1
+ExecStartPre=+/bin/chmod 0660 /dev/tty1
+ExecStart=/usr/bin/xgbackup menu
+StandardInput=tty
+StandardOutput=tty
+StandardError=tty
+TTYPath=/dev/tty1
+TTYReset=yes
+TTYVHangup=yes
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

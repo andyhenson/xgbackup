@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -95,28 +96,49 @@ func BuildStatus(cfg config.Config) (Status, error) {
 }
 
 func PrintStatus(cfg config.Config) error {
-	st, err := BuildStatus(cfg)
+	if os.Geteuid() != 0 {
+		text, err := queryStatusText()
+		if err != nil {
+			return err
+		}
+		fmt.Print(text)
+		return nil
+	}
+	text, err := statusText(cfg)
 	if err != nil {
 		return err
 	}
-	fmt.Printf("vault %s\n", st.VaultID)
-	fmt.Printf("pool %s\n", cfg.Pool)
-	fmt.Printf("free %d bytes of %d\n", st.PoolFreeBytes, st.PoolTotalBytes)
+	fmt.Print(text)
+	return nil
+}
+
+func statusText(cfg config.Config) (string, error) {
+	st, err := BuildStatus(cfg)
+	if err != nil {
+		return "", err
+	}
+	var b strings.Builder
+	fmt.Fprintf(&b, "vault %s\n", st.VaultID)
+	fmt.Fprintf(&b, "pool %s\n", cfg.Pool)
+	fmt.Fprintf(&b, "free %d bytes of %d\n", st.PoolFreeBytes, st.PoolTotalBytes)
 	if len(st.Clients) == 0 {
-		fmt.Println("clients none")
+		fmt.Fprintf(&b, "clients none\n")
 	}
 	for _, c := range st.Clients {
 		ok := "ok"
 		if !c.LastSnapshotOK {
 			ok = "failed"
 		}
-		fmt.Printf("client %s last_snapshot=%s %s", c.Name, emptyDash(c.LastSnapshot), ok)
+		fmt.Fprintf(&b, "client %s last_snapshot=%s %s", c.Name, emptyDash(c.LastSnapshot), ok)
 		if c.LastError != "" {
-			fmt.Printf(" error=%s", c.LastError)
+			fmt.Fprintf(&b, " error=%s", c.LastError)
 		}
-		fmt.Println()
+		fmt.Fprintf(&b, "\n")
 	}
-	return WriteStatus(cfg)
+	if err := WriteStatus(cfg); err != nil {
+		return "", err
+	}
+	return b.String(), nil
 }
 
 func emptyDash(s string) string {

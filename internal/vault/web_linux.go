@@ -60,13 +60,17 @@ func Web() error {
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", s.serve)
-	fmt.Printf("web listening on http://%s/\n", s.web.Listen)
+	cert, key := webCertPaths(s.web)
+	if err := ensureWebCert(cert, key); err != nil {
+		return err
+	}
+	fmt.Printf("web listening on https://%s/\n", s.web.Listen)
 	server := &http.Server{
 		Addr:              s.web.Listen,
 		Handler:           mux,
 		ReadHeaderTimeout: 10 * time.Second,
 	}
-	return server.ListenAndServe()
+	return server.ListenAndServeTLS(cert, key)
 }
 
 func ApproveWeb() error {
@@ -212,7 +216,7 @@ func (s *webServer) approve(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	_ = os.Remove(approvePath)
-	http.SetCookie(w, &http.Cookie{Name: deviceCookie, Value: token, Path: "/", HttpOnly: true, SameSite: http.SameSiteLaxMode})
+	http.SetCookie(w, &http.Cookie{Name: deviceCookie, Value: token, Path: "/", HttpOnly: true, SameSite: http.SameSiteLaxMode, Secure: true})
 	http.Redirect(w, r, "/login", http.StatusSeeOther)
 }
 
@@ -235,7 +239,7 @@ func (s *webServer) login(w http.ResponseWriter, r *http.Request) {
 			s.mu.Lock()
 			s.sessions[token] = user
 			s.mu.Unlock()
-			http.SetCookie(w, &http.Cookie{Name: sessionCookie, Value: token, Path: "/", HttpOnly: true, SameSite: http.SameSiteLaxMode})
+			http.SetCookie(w, &http.Cookie{Name: sessionCookie, Value: token, Path: "/", HttpOnly: true, SameSite: http.SameSiteLaxMode, Secure: true})
 			http.Redirect(w, r, "/", http.StatusSeeOther)
 			return
 		}

@@ -1,65 +1,52 @@
 # Menus, web UI, and Samba
 
-The CLI stays. These are the everyday ways to list snapshots and restore.
+The CLI stays. People use the menu and the web UI without logging in as root.
 
-## List and restore
+## List
 
 ```sh
-sudo xgbackup ls
-sudo xgbackup ls --snapshot daily-20261012
-sudo xgbackup ls --snapshot daily-20261012 --client xgb-demo --path nested
-sudo xgbackup restore --client xgb-demo --snapshot daily-20261012 --path nested/sample.txt --dest /tmp/sample.txt
-sudo xgbackup restore --client xgb-demo --snapshot daily-20261012 --path . --dest /tmp/xgb-demo
-sudo xgbackup restore --all --snapshot daily-20261012 --dest /tmp/all-clients
+xgbackup ls
+xgbackup ls --snapshot daily-20261012
+xgbackup ls --snapshot daily-20261012 --client xgb-demo --path nested
+xgbackup status
 ```
 
-`--path .` restores that client's whole tree. `--all` restores every client into `dest/<client>/`.
+These work for a logged-in user. The vault query service reads the snapshots. The user does not become root, and a backup key still cannot delete history.
+
+Restore is not done on the vault. A restore is made onto another machine.
 
 ## Console menu
 
-On the vault, as root:
-
 ```sh
-sudo xgbackup menu
+xgbackup menu
 ```
 
-The menu uses whiptail. It does not ask for the web checks, because the person is already logged in on the machine.
+The menu shows status, lists snapshots, browses files, and configures the web UI. It does not take snapshots and it does not restore files onto this machine. Snapshots are taken by the timers.
 
-## Permissions
-
-- **Backup.** An `xgb-*` key can write only to that client's drop. It cannot read snapshots.
-- **Setup.** Root, plus names added with `sudo xgbackup access setup add andy`. Setup can use the web UI for every feature.
-- **Restore.** `sudo xgbackup access restore add sam --client xgb-demo --prefix docs` lets sam restore that prefix through the web UI. Setup users can restore everything.
-
-```sh
-sudo xgbackup access list
-```
+The first time the web UI is configured from this menu, the console menu service and the web service are enabled.
 
 ## Web UI
 
-The web UI listens on `127.0.0.1:8787` unless `/etc/xgbackup/config.json` says otherwise. It is not a public service. Reach it through SSH or WireGuard, not by opening it to the internet.
+The web UI is HTTPS, on the address chosen in the menu, so it can be opened without WireGuard. The certificate is created on the vault. A browser will warn until that certificate is trusted.
 
-```json
-"web": {
-  "listen": "127.0.0.1:8787",
-  "required": ["ip", "cookie", "password", "totp"],
-  "allow_cidr": ["127.0.0.1/32", "10.4.1.0/24"]
-}
-```
-
-`required` is any mix of `ip`, `cookie`, `password`, and a second factor: `totp` (Google Authenticator) or `email`. If `required` is omitted, password is required.
+The menu asks which checks to require. `required` is any mix of `ip`, `cookie`, `password`, and a second factor: `totp` (Google Authenticator) or `email`. If none are selected, password is required.
 
 ```sh
-sudo xgbackup access setup add andy
-printf '%s\n' 'a-long-password' | sudo xgbackup web user add andy --email andy@example.com
-sudo xgbackup web totp andy
-sudo systemctl enable --now xgbackup-web.service
-sudo xgbackup web approve
+xgbackup web totp USER
+xgbackup web approve
 ```
 
-`web approve` prints a code. Enter it in the browser to store the cookie that permits logon. The cookie is approved by someone who can log into the vault.
+`web approve` prints a code. Enter it in the browser to store the cookie that permits logon.
 
-A web restore is written under `/var/lib/xgbackup/restores/`.
+## Permissions
+
+- **Backup.** An `xgb-*` key can write only to that client's drop. It cannot read snapshots and it cannot configure the web UI.
+- **Setup.** A user who configures the web UI is recorded as a setup user. Later changes are limited to setup users.
+- **Restore.** Restore permissions still apply when a restore is run for another machine. They are not a menu item on the vault.
+
+```sh
+xgbackup access list
+```
 
 ## Samba
 

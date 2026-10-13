@@ -1,0 +1,11 @@
+[Unit]
+Description=XG Backup local query
+After=local-fs.target
+
+[Service]
+ExecStart=/usr/bin/xgbackup query
+Restart=on-failure
+RuntimeDirectory=xgbackup
+
+[Install]
+WantedBy=multi-user.target

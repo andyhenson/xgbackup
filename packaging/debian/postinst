@@ -1,11 +1,15 @@
 #!/bin/sh
 set -e
 if [ "$1" = "configure" ]; then
+	if ! id xgbackup >/dev/null 2>&1; then
+		adduser --system --group --home /var/lib/xgbackup --no-create-home xgbackup || true
+	fi
 	systemctl daemon-reload || true
 	systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target || true
 	systemctl enable xgbackup-snapshot-daily.timer || true
 	systemctl enable xgbackup-snapshot-weekly.timer || true
 	systemctl enable xgbackup-snapshot-monthly.timer || true
 	systemctl enable xgbackup-snapshot-yearly.timer || true
+	systemctl enable --now xgbackup-query.service || true
 fi
 exit 0

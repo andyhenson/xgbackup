@@ -66,10 +66,13 @@ func Entries(pool, snapshot, client, rel string) ([]string, error) {
 }
 
 func List(pool, snapshot, client, rel string) error {
-	if err := requireRoot(); err != nil {
-		return err
+	var names []string
+	var err error
+	if os.Geteuid() != 0 {
+		names, err = queryNames(snapshot, client, rel)
+	} else {
+		names, err = Entries(pool, snapshot, client, rel)
 	}
-	names, err := Entries(pool, snapshot, client, rel)
 	if err != nil {
 		return err
 	}

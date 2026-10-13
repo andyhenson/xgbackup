@@ -50,20 +50,11 @@ func saveWebUsers(users []webUser) error {
 	return os.WriteFile(webUsersPath, data, 0o600)
 }
 
-func AddWebUser(name, email string) error {
-	if err := requireRoot(); err != nil {
-		return err
-	}
+func setWebPassword(name, email, pw string) error {
 	name = strings.TrimSpace(name)
 	if name == "" || strings.Contains(name, ":") {
 		return fmt.Errorf("user name is required")
 	}
-	fmt.Fprint(os.Stderr, "password: ")
-	line, err := bufio.NewReader(os.Stdin).ReadString('\n')
-	if err != nil {
-		return err
-	}
-	pw := strings.TrimSpace(line)
 	if len(pw) < 8 {
 		return fmt.Errorf("password must be at least 8 characters")
 	}
@@ -93,6 +84,18 @@ func AddWebUser(name, email string) error {
 	}
 	fmt.Printf("web user %s\n", name)
 	return nil
+}
+
+func AddWebUser(name, email string) error {
+	if err := requireRoot(); err != nil {
+		return err
+	}
+	fmt.Fprint(os.Stderr, "password: ")
+	line, err := bufio.NewReader(os.Stdin).ReadString('\n')
+	if err != nil {
+		return err
+	}
+	return setWebPassword(name, email, strings.TrimSpace(line))
 }
 
 func SetWebTOTP(name string) error {
